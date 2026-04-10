@@ -52,3 +52,28 @@ df <- df |>
         RecordedDay = day(RecordedDate),
         RecordedWeekday = wday(RecordedDate, label = TRUE)
     )
+
+# Doesn't technically belong here, but comes up often enough it's worth exposing globally:
+# (Map index of vector to game names, both full and convenient)
+gamenames = c("Assassin's Creed (2007)",
+              "Assassin's Creed II (2009)", 
+              "Assassin's Creed: Brotherhood (2010)",
+              "Assassin's Creed: Revelations (2011)",
+              "Assassin's Creed III (2012)",
+              "Assassin's Creed IV: Black Flag (2013)",
+              "Assassin's Creed: Rogue (2014)",
+              "Assassin's Creed: Unity (2014)",
+              "Assassin's Creed: Syndicate (2015)",
+              "Assassin's Creed: Origins (2017)",
+              "Assassin's Creed: Odyssey (2018)",
+              "Assassin's Creed: Valhalla (2020)")
+short_gamenames = c(
+  "AC I", "AC II", "AC: Brotherhood", "AC: Revelations", "AC III", 
+  "AC IV: Black Flag", "AC: Rogue", "AC: Unity", "AC: Syndicate", 
+  "AC: Origins", "AC: Odyssey", "AC: Valhalla"
+)
+community_gamenames = c(
+    "AC1", "AC2", "Brotherhood", "Revelations", "AC3", 
+    "Black Flag", "Rogue", "Unity", "Syndicate", 
+    "Origins", "Odyssey", "Valhalla"
+)
