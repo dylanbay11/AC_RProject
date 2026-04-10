@@ -1,6 +1,9 @@
 # AC Survey (R Version)
 
-library(tidyverse)
+library(tidyverse)  # data manipulation and visualization
+library(patchwork)  # side by side plots
+library(sf)  # reverse geo lookup
+library(rnaturalearth)  # reverse geo lookup
 
 # a few formats:  with numeric responses vs choice text
 #                 also split multianswer fields into columns or not
@@ -14,19 +17,55 @@ df = read_csv(file = choice)
 colnames(df)
 df <- df %>% 
   select("ResponseId", "Status", "Progress", "Duration (in seconds)",
-         "LocationLatitude", "LocationLongitude", "Intro", contains("_"))
-df <- slice(df, -c(1,2,3)) # drop my preview submission and garbage header-likes
+         "LocationLatitude", "LocationLongitude", "Intro", "RecordedDate", 
+         contains("_"))
+df <- slice(df, -c(1,2,3))  # drop my preview submission and garbage header-likes
 colnames(df)
-unique(df$Status)
+# unique(df$Status)
 # df[df$Status == "Spam",]
-df <- df %>% 
-  filter(Status != "Spam")
+df <- df |> 
+  filter(Status != "Spam") |> 
+  select(-Status)  # now-useless column after filter
 
-#TODO Drop Status == "Spam" response
+# library(tidygeocoder)
+# df <- df |> 
+#   reverse_geocode(lat = LocationLatitude, long = LocationLongitude, 
+#     method = "osm", full_results = TRUE)
+# above provides maybe TOO much detail/false detail? Takes a while to run as well
+
+# let's just grab country codes
+world <- ne_countries(scale = "medium", returnclass = "sf") |>
+  select(iso_a3, name, subregion, region_wb)
+df <- df |>
+  filter(!is.na(LocationLongitude), !is.na(LocationLatitude)) |>
+  st_as_sf(coords = c("LocationLongitude", "LocationLatitude"), crs = 4326) |>
+  st_join(world) |>
+  st_drop_geometry() |> 
+  select("ResponseId", "iso_a3", "name", "subregion", "region_wb") |> 
+  right_join(df, by = "ResponseId") |> 
+  rename(country_code = iso_a3,
+         country_name = name)
+
+# EDA of countries (subregion probably most granular/useful, World Bank lumps all Europe together)
+df %>%
+  count(subregion) %>%
+  ggplot(aes(x = n, y = fct_reorder(subregion, n))) +
+  geom_col() +
+  labs(x = "Number of Responses", y = "Subregion") +
+df %>%
+  count(country_name) %>%
+  ggplot(aes(x = n, y = fct_reorder(country_name, n))) +
+  geom_col() +
+  labs(x = "Number of Responses", y = "Country") +
+df %>%
+  count(region_wb) %>%
+  ggplot(aes(x = n, y = fct_reorder(region_wb, n))) +
+  geom_col() +
+  labs(x = "Number of Responses", y = "WB Subregion")
+
 #TODO Rename Duration column
 # Examine durations of survey and graph vs if they finished or not ("Progress" or "Finished")
 # Compare formats to "choice"
-# POTENTIAL FUTURE ADDON: Determine country of origin by latitude/longitude data?
 #TODO Make dictionary with response number and entry key
 gamenames = c("Assassin's Creed (2007)",
               "Assassin's Creed II (2009)", 
@@ -40,6 +79,11 @@ gamenames = c("Assassin's Creed (2007)",
               "Assassin's Creed: Origins (2017)",
               "Assassin's Creed: Odyssey (2018)",
               "Assassin's Creed: Valhalla (2020)")
+short_gamenames = c(
+  "AC I", "AC II", "AC: Brotherhood", "AC: Revelations", "AC III", 
+  "AC IV: Black Flag", "AC: Rogue", "AC: Unity", "AC: Syndicate", 
+  "AC: Origins", "AC: Odyssey", "AC: Valhalla"
+)
 
 # So 12 games and the second part of each question was:
 #   _1 = Story
