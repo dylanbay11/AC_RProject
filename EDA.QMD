@@ -1,0 +1,86 @@
+---
+title: "EDA"
+subtitle: "Exploring AC Survey"
+author: "Dylan Bay"
+date: today
+format:
+    html:
+        toc: true
+        df-print: paged
+        code-fold: true  # Code hidden by default
+        embed-resources: true
+        code-summary: "Show the code"
+theme: simplex
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# From Cleaning.R
+library(dplyr)
+library(readr)
+library(tidyr)
+library(sf)  
+library(rnaturalearth) 
+library(here)
+library(lubridate)
+
+# Loaded here
+library(ggplot2)
+library(cowplot)
+library(skimr)
+library(naniar)
+
+# Options
+knitr::opts_chunk$set(  
+fig.width = 8,
+fig.height = 5,
+fig.align = "center",
+dpi = 300
+) # beyond YAML defaults
+options(scipen = 999)
+theme_set(theme_cowplot())
+```
+
+# Introduction
+
+I will be analyzing THIS data source. For some background, CONTEXT. The goal is to OBJECTIVE.
+
+# Import
+
+```{r}
+#| label: load-data
+
+source(here::here("Cleaning.R"))
+```
+
+# EDA
+
+Here is some initial descriptive information about our dataset.
+
+```{r}
+#| label: eda
+
+# skim(df)
+# df |> group_by(cat_var) |> skim()  # summaries per major category
+# df |> skim() |> filter(n_missing > 0)  # summary of missings
+# vis_miss(df)  # heatmap of missingness overall
+# gg_miss_var(df)  # bar of missingness
+# gg_miss_upset(df)  # easy col-to-col missingness associations
+```
+
+# Analysis
+
+We will now proceed with our analysis.
+
+```{r}
+#| label: modeling
+
+set.seed(1001)
+```
+
+# Conclusion
+
+It is clear that FINDING. We recommend ACTION. Possible next steps include EXTRAS.
