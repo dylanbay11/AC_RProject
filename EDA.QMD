@@ -28,8 +28,10 @@ library(here)
 library(lubridate)
 
 # Loaded here
+library(forcats)
 library(ggplot2)
 library(cowplot)
+library(patchwork)
 library(skimr)
 library(naniar)
 
@@ -61,7 +63,7 @@ source(here::here("Cleaning.R"))
 Here is some initial descriptive information about our dataset.
 
 ```{r}
-#| label: eda
+#| label: skim_eda
 
 # skim(df)
 # df |> group_by(cat_var) |> skim()  # summaries per major category
@@ -70,6 +72,30 @@ Here is some initial descriptive information about our dataset.
 # gg_miss_var(df)  # bar of missingness
 # gg_miss_upset(df)  # easy col-to-col missingness associations
 ```
+
+```{r}
+#| label: country_eda
+
+subregion.gg <- df %>%
+   count(Subregion) %>%
+   ggplot(aes(x = n, y = fct_reorder(Subregion, n))) +
+   geom_col() +
+   labs(x = "Number of Responses", y = "Subregion")
+country.gg <- df %>%
+   count(CountryName) %>%
+   ggplot(aes(x = n, y = fct_reorder(CountryName, n))) +
+   geom_col() +
+   labs(x = "Number of Responses", y = "Country")
+wbregion.gg <- df %>%
+   count(WBRegion) %>%
+   ggplot(aes(x = n, y = fct_reorder(WBRegion, n))) +
+   geom_col() +
+   labs(x = "Number of Responses", y = "World Bank Subregion")
+country.gg 
+subregion.gg
+wbregion.gg
+```
+
 
 # Analysis
 
