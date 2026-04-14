@@ -1,6 +1,7 @@
 # AC Survey Data Cleaning Pipeline - intended to be source()'d
 
 library(dplyr)
+library(readr)
 library(tidyr)
 library(sf)  
 library(rnaturalearth) 
@@ -9,10 +10,10 @@ library(lubridate)
 
 # Data Import
 # Alternate-format Intro question data from Qualtrics to be joined to primary df
-df_alt <- read_csv(here("Qualtrics_split_numeric.csv"), show_col_types = FALSE) |> 
+df_alt <- read_csv(here::here("Qualtrics_split_numeric.csv"), show_col_types = FALSE) |> 
     slice(-c(1,2,3,4)) |> 
     select("ResponseId", starts_with("Intro_"))
-df <- read_csv(here("Qualtrics_numeric.csv"), show_col_types = FALSE) |> 
+df <- read_csv(here::here("Qualtrics_numeric.csv"), show_col_types = FALSE) |> 
     slice(-c(1,2,3,4)) |>  # first few rows are test data and headers
     left_join(df_alt, by = "ResponseId") |> 
     select("ResponseId", "Status", "Progress", "Duration (in seconds)",
@@ -73,7 +74,7 @@ short_gamenames = c(
   "AC: Origins", "AC: Odyssey", "AC: Valhalla"
 )
 community_gamenames = c(
-    "AC1", "AC2", "Brotherhood", "Revelations", "AC3", 
+    "AC 1", "AC 2", "Brotherhood", "Revelations", "AC 3", 
     "Black Flag", "Rogue", "Unity", "Syndicate", 
     "Origins", "Odyssey", "Valhalla"
 )
