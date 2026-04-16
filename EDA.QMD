@@ -85,16 +85,16 @@ country.gg <- df %>%
    geom_col() +
    labs(x = "Number of Responses (n > 1)", y = "Country") +
   theme(legend.position = "none")
+subregion.gg <- df %>%
+   count(Subregion) %>%
+   ggplot(aes(x = n, y = fct_reorder(Subregion, n), fill = Subregion)) +
+   geom_col() +
+   labs(x = "Number of Responses", y = "Subregion")
 wbregion.gg <- df %>%
    count(WBRegion) %>%
    ggplot(aes(x = n, y = fct_reorder(WBRegion, n), fill = WBRegion)) +
    geom_col() +
    labs(x = "Number of Responses", y = "World Bank Subregion")
-subregion.gg <- df %>%
-   count(Subregion) %>%
-   ggplot(aes(x = n, y = fct_reorder(Subregion, n)), fill = Subregion) +
-   geom_col() +
-   labs(x = "Number of Responses", y = "Subregion")
 country.gg 
 subregion.gg
 wbregion.gg
@@ -107,10 +107,46 @@ df |>
 # 30 records didn't proceed to the second question - that's a 90.7% rate to pass to the next set. Decent.
 
 # # let's see if we maybe have any problematic completions? 
-# because remember we have a whole set of games-played only, and then full ratings... but did any full raters give up?
+# because remember we have a whole set of games-played only, and then full ratings... but did any FULL raters give up?
 # this is kinda tricky to code with branching logic...
 
-# Let's pivot_longer 
+# To do this let's do a two-step transform of the grain: from respondent-rows, to individual response-rows
+#  (with a metadata column identifying the question), then re-block (wider) as question-rows
+
+df_long <- df |> 
+  pivot_longer(
+    cols = contains("_"),
+    names_to = c("group", "question"),
+    names_sep = "_"
+  ) |> 
+  pivot_wider(
+    names_from = question,
+    values_from = value
+  )
+
+# this answers: did anyone forget or decline to fill in one of the three subquestions (within a game) randomly?
+partial_within_game <- df_long |> 
+  filter(Intro == 1) |> 
+  filter(is.na(`1`) | is.na(`2`) | is.na(`3`)) |>  
+  select(c("ResponseId", "IntroList", "group", "Intro", `1`, `2`, `3`, "Progress", "Duration")) |> 
+  filter((is.na(`1`) + is.na(`2`) + is.na(`3`)) < 3)
+# yes, three people. will need to consider how to handle this, because will (slightly) affect a few calculations
+# note that all three of these people DID fully rate all the rest, it's just these randomly missing single sub-q's
+# c("R_1ikUGhQjZS6RZJt", "R_BPzLWS3pTSYFU2J", "R_Uu9SV5hqekMiW8V")
+
+# usually, either someone drops the survey entirely when reaching the non-Intro question, OR fills it ALL out.
+# this answers: did anyone fill out only SOME of the follow-ups?
+partial_within_list <- df_long |> 
+  filter(Intro == 1) |> 
+  group_by(ResponseId) |>
+  filter(
+    any(is.na(`1`) & is.na(`2`) & is.na(`3`)) & 
+    any(!is.na(`1`) | !is.na(`2`) | !is.na(`3`))
+  ) |>
+  ungroup()
+# yes, two people neglected to answer one game, randomly
+# c("R_1Ow4KSy0Od9qDxH", "R_3ncpah7gt2PAX4m")
+
 ```
 
 Also remember I did some work on the shift in distribution
@@ -143,7 +179,7 @@ results <- lapply(pairs, function(p) {
     mutate(DayBucket = droplevels(DayBucket)) # cliff.delta strictly expects exactly 2 levels
   
   # Run the test
-  cd <- cliff.delta(total_played ~ DayBucket, data = subset_df)
+  cd <- cliff.delta(TotalPlayed ~ DayBucket, data = subset_df)
   
   # Extract the useful bits into a clean row
   data.frame(
