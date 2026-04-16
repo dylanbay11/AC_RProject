@@ -3,6 +3,7 @@
 library(dplyr)
 library(readr)
 library(tidyr)
+library(stringr)
 library(sf)  
 library(rnaturalearth) 
 library(here)
@@ -24,7 +25,8 @@ df <- read_csv(here::here("Qualtrics_numeric.csv"), show_col_types = FALSE) |>
     filter(Status != "Spam") |> 
     select(-Status) |>  # now-useless column after filter
     rename(IntroList = Intro,
-           Duration = "Duration (in seconds)")
+           Duration = "Duration (in seconds)") |> 
+    rename_with(str_replace, starts_with("Intro_"), pattern = "Intro_(\\d+)", replacement = "\\1_Intro")
 rm(df_alt)  # keep our memory nice and focused
 invisible(gc(verbose = FALSE))
 
