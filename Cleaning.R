@@ -50,7 +50,7 @@ invisible(gc(verbose = FALSE))
 # Additional Features
 df <- df |> 
     mutate(
-        total_played = as.integer(rowSums(pick(starts_with("Intro_")), na.rm = TRUE)),
+        TotalPlayed = as.integer(rowSums(pick(ends_with("_Intro")), na.rm = TRUE)),
         RecordedDate = ymd_hms(RecordedDate),
         RecordedDay = day(RecordedDate),
         RecordedWeekday = wday(RecordedDate, label = TRUE)
