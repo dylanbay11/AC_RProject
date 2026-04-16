@@ -85,16 +85,28 @@ short_gamenames = c(
   "AC: Origins", "AC: Odyssey", "AC: Valhalla"
 )
 
-# So 12 games and the second part of each question was:
+# Qualtrics intro landing page text:
+# Thanks in advance! Please note this is NOT an official survey and in no way is affiliated with the publisher 
+# or the subreddit. It's just something fun that will be have results published on the subreddit, 
+# to get the data behind the commonly asked questions: Which Assassin's Creed game is the best? 
+# Which one has the best story or gameplay? Which should I buy? I've kept the survey nice and short and to the point!
+
+# First question text:
+# Which Assassin's Creed games have you played and would thus like to rate on the next page? Select all that apply.
+
+# So 12 games were options, and the second part of each question was:
 #   _1 = Story
 #   _2 = Gameplay
 #   _3 = Enjoyment/Overall
 
-# Exact text of second question
-# "Reviews of the games generally seem to boil down to feedback on the Story and Gameplay,
+# Exact text of second question:
+# Reviews of the games generally seem to boil down to feedback on the Story and Gameplay,
 # which are often different. You'll also of course be asked for an overall rating for the game, 
 # how much you personally enjoyed playing it overall (not necessarily how much you'd recommend
 # it to others!) Please rate on a classic 1-10 scale.
+# NOTE: Please rate the game based on how it was when you played it; or if you've played a while or several times, 
+# please rate based on final patched version with any purchased DLC 
+# ((NOTE found in Qualtrics file, not 100% sure if included))
 
 
 
