@@ -10,7 +10,8 @@ ggplot(df, aes(x = total_played, y = reorder(paste(RecordedDay, "-", RecordedWee
   scale_fill_viridis_d(name = "Total Played", option = "C", alpha = .7) +
   labs(title = "Shift in total_played Distribution by Response Day",
        y = "Survey Day", x = "Total Played Value") +
-  theme_ridges()
+  theme_ridges() +
+  theme(legend.position = "none")
 
 # alternate visualization type without the end-smoothing (but still proportional within-day)
 ggplot(df, aes(x = total_played, y = reorder(paste(RecordedDay, "-", RecordedWeekday), RecordedDay), fill = as.factor(RecordedDay))) +
@@ -61,3 +62,25 @@ ggplot(df, aes(
     x = "Total Played Value"
   ) +
   theme_ridges()
+
+# version of first chart with counts to the side - alternative to the smushed ridges above
+p1 <- ggplot(df, aes(x = total_played, y = reorder(paste(RecordedDay, "-", RecordedWeekday), RecordedDay), 
+                     fill = as.factor(RecordedDay))) +
+  geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis_d(name = "Total Played", option = "C", alpha = .7) +
+  labs(title = "Shift in total_played Distribution by Response Day",
+       y = "Survey Day", x = "Total Played Value") +
+  theme_ridges() +
+  theme(legend.position = "none")
+
+p2 <- ggplot(df, aes(y = reorder(paste(RecordedDay, "-", RecordedWeekday), RecordedDay), 
+                     fill = as.factor(RecordedDay))) +
+  geom_bar() +
+  scale_fill_viridis_d(option = "C", alpha = .7) +
+  labs(title = "", x = NULL, y = NULL) +
+  theme_ridges() +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(), # Removes y-axis labels to merge the visual flow with p1
+        axis.ticks.y = element_blank())
+
+p1 + p2 + plot_layout(widths = c(4, 1))
