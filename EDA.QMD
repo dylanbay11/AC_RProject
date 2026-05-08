@@ -51,6 +51,20 @@ theme_set(theme_cowplot())
 
 I will be analyzing THIS data source. For some background, CONTEXT. The goal is to OBJECTIVE.
 
+On Tues, May 24, 2022 I ran a survey on the Assassin's Creed community on Reddit ([link](https://www.reddit.com/r/assassinscreed/comments/uwy6rd/which_ac_game_really_does_the_subreddit_like_the/)). The survey was designed pretty narrowly with one major goal, to understand the most popular games in the franchise and what made them popular, but also to see if there were any special links between games (for example, the franchise is usually roughly divided into 3 "eras" based on the look and feel of the games and their developer choices, AC1 thru AC3, AC4 thru AC Syndicate, AC Origins thru AC Valhalla). For simplicity, I only allowed the "mainline" games to be rated. To improve completion rates, I designed it to be both minimal and conditional: first respondents would select all the games they had played, and then they would rate each on Story, Gameplay, and Overall. The survey was conducted with Qualtrics and the exact phrasing was as follows:
+
+> (Reddit title) Which AC game really DOES the subreddit like the most? Take the (unofficial) survey!
+
+> (Landing page) Thanks in advance! Please note this is NOT an official survey and in no way is affiliated with the publisher or the subreddit. It's just something fun that will be have results published on the subreddit, to get the data behind the commonly asked questions: Which Assassin's Creed game is the best? Which one has the best story or gameplay? Which should I buy? I've kept the survey nice and short and to the point!
+
+> (First question text) Which Assassin's Creed games have you played and would thus like to rate on the next page? Select all that apply.
+
+> "Assassin's Creed (2007)", "Assassin's Creed II (2009)", "Assassin's Creed: Brotherhood (2010)", "Assassin's Creed: Revelations (2011)", "Assassin's Creed III (2012)", "Assassin's Creed IV: Black Flag (2013)", "Assassin's Creed: Rogue (2014)", "Assassin's Creed: Unity (2014)", "Assassin's Creed: Syndicate (2015)", "Assassin's Creed: Origins (2017)", "Assassin's Creed: Odyssey (2018)", "Assassin's Creed: Valhalla (2020)"
+
+> (Second question text) Reviews of the games generally seem to boil down to feedback on the Story and Gameplay, which are often different. You'll also of course be asked for an overall rating for the game, how much you personally enjoyed playing it overall (not necessarily how much you'd recommend it to others!) Please rate on a classic 1-10 scale. NOTE: Please rate the game based on how it was when you played it; or if you've played a while or several times, please rate based on final patched version with any purchased DLC.
+
+I collected 324 responses. 240 fully completed responses, 5 with a minor missing response, and 79 responses that included which games they played but didn't continue to the subratings section.
+
 # Import
 
 ```{r}
@@ -102,9 +116,14 @@ wbregion.gg
 ```
 
 ```{r}
-df |> 
+#| label: missing-data
+
+df_missing <- df |> 
   filter(if_all(ends_with("_1"), is.na))  # req recent version: dpylr 1.2+
 # 30 records didn't proceed to the second question - that's a 90.7% rate to pass to the next set. Decent.
+# wait - I did that wrong I think - it's acutally 79??
+# also not really relevant but 4 years later reddit shows 6.4k views on the survey page. 
+# While obviously that's cumulative (so really is higher), it implies maybe a 5% click-through rate? decent.
 
 # # let's see if we maybe have any problematic completions? 
 # because remember we have a whole set of games-played only, and then full ratings... but did any FULL raters give up?
@@ -137,21 +156,32 @@ partial_within_game <- df_long |>
 # usually, either someone drops the survey entirely when reaching the non-Intro question, OR fills it ALL out.
 # this answers: did anyone fill out only SOME of the follow-ups?
 partial_within_list <- df_long |> 
-  filter(Intro == 1) |> 
-  group_by(ResponseId) |>
+  filter(Intro == 1) |>    # the question was supposed to have been filled out, and...
+  group_by(ResponseId) |>  # on a per person basis...
   filter(
-    any(is.na(`1`) & is.na(`2`) & is.na(`3`)) & 
-    any(!is.na(`1`) | !is.na(`2`) | !is.na(`3`))
+    any(is.na(`1`) & is.na(`2`) & is.na(`3`)) &   # does the person have a group that's all missing AND
+    any(!is.na(`1`) | !is.na(`2`) | !is.na(`3`))  # does the person have at least one group with a real answer?
   ) |>
   ungroup()
 # yes, two people neglected to answer one game, randomly
 # c("R_1Ow4KSy0Od9qDxH", "R_3ncpah7gt2PAX4m")
 
+# I could easily pull() the vectors of ID's but since this is a notebook I think it's fine to hardcode this small group
+partial_response_Ids <- c("R_1ikUGhQjZS6RZJt", "R_BPzLWS3pTSYFU2J", "R_Uu9SV5hqekMiW8V", 
+                          "R_1Ow4KSy0Od9qDxH", "R_3ncpah7gt2PAX4m")
+# Thus for questions that require both sets of data and no partials of any kind, "dff" for "df full"
+dff <- df |> 
+  filter(!(ResponseId %in% partial_response_Ids),
+         !if_all(ends_with("_1"), is.na))
+dff_long <- dff |> 
+  
 ```
 
 Also remember I did some work on the shift in distribution
 
 ```{r}
+#| label: response-time-shift
+
 library(dplyr)
 library(effsize)
 
@@ -205,10 +235,179 @@ print(cliff_results)
 # long story short: mostly there is a noticeable Day 1 effect, though still only so-so in strength
 ```
 
+Complement to the above:
+
+```{r}
+source("SelectionEffectsViz.R")
+```
+
+```{r}
+# did we get excessive dropout due to anticipated fatigue?
+# lm in_df_missing ~ TotalPlayed ?
+```
+
+```{r}
+library(ggdist)  # may conflict ggridges; resolve if combining SelectionEffectsViz.R
+
+# use dff to for full subdata only
+# prep for visualization by pivoting to tidy standards: game+rater grain and single-subrating grain
+dff_games <- dff |> 
+  pivot_longer(
+    cols = contains("_"),
+    names_to = c("GameNum", "question"),
+    names_sep = "_"
+  ) |> 
+  pivot_wider(
+    names_from = question,
+    values_from = value
+  ) |> 
+  rename(Story = `1`, Gameplay = `2`, Overall = `3`, Played = "Intro")
+dff_responses <- dff |> 
+  pivot_longer(
+    cols = contains("_"),
+    names_to = c("GameNum", "Subquestion"),
+    names_sep = "_",
+    values_to = "Rating"
+  ) |> 
+  mutate(Subquestion = replace_values(Subquestion, from = c("1", "2", "3"), 
+                                      to = c("Story", "Gameplay", "Overall")),
+         GameNum = factor(as.numeric(GameNum), levels = 1:12, labels = short_gamenames)) |> 
+  filter(Subquestion != "Intro")
+```
+
+```{r}
+# I don't think this really shows what I want it to show
+dff_games |> 
+  mutate(Overall = factor(Overall),
+         Overall = fct_reorder(Overall, as.numeric(Overall), .desc = T)) |> 
+  ggplot(aes(x = Gameplay, y = Story, color = Overall)) +
+  geom_jitter(width = 0.4, height = 0.4, alpha = 0.25, size = 1.5)
+```
+
+```{r}
+# library("paletteer")
+dff_responses |> 
+  ggplot(aes(x = GameNum, y = Rating, fill = Subquestion, color = Subquestion)) +
+  geom_violin(position = position_dodge(width = 0.8), trim = FALSE, alpha = 0.7) + 
+  theme_cowplot() + 
+  scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) + 
+  scale_color_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c"))
+```
+
+```{r}
+library(ggbeeswarm)
+dff_responses |> 
+  ggplot(aes(x = Subquestion, y = Rating, fill = Subquestion, color = Subquestion)) +
+  geom_violin(trim = FALSE, alpha = 0.7, color = NA) + 
+  geom_quasirandom(alpha = 0.2, size = 0.8, dodge.width = 0.8) +
+  facet_wrap(~GameNum) +
+  theme_cowplot() + 
+  scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) + 
+  scale_color_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) +
+  theme(
+    panel.grid.major.y = element_line(color = "grey92", linewidth = 0.5),
+    axis.text.x = element_blank(), 
+    axis.ticks.x = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(face = "bold")
+  ) +
+  guides(
+    fill = guide_legend(title.position = "left", title.vjust = 0.5, nrow = 1),
+    color = guide_legend(title.position = "left", title.vjust = 0.5, nrow = 1)
+  ) +
+  scale_y_continuous(breaks = c(2, 4, 6, 8, 10), limits = c(0, 10)) +
+  xlab("")
+```
+
+Okay, that's a good visual. Some observations: AC1 and AC2 are carried and dominated in overall score by story; Brotherhood, weirdly, is the opposite. AC1 is pretty notable for having gameplay that is mid at the verybest. Revelations is a bit polarizing within the high side regarding story. AC3 starts to noticeably droop in scores, but Black Flag seems to deserve high praise all around. Starting with Rogue and Unity, we start to see story sag for a while, culminating with a VERY panned Syndicate story, being pulled much more sharply towards 7's in story and this appears to drag down the overall ratings. Interestingly, for the most part gameplay seems to keep the overall ratings from excessive deterioration. Origins seems to be a clear return to form with the shapes up with the best of them, although there are clearly some detractors. Odyssey has a clearly softer story and Valhalla even worse; Odyssey seems to have some polarizing gameplay but Valhalla seems an even riskier bet. Looking overall, about half of the games had significant numbers of "hated" story ratings.
+
+IDEA: Look at 10/10's proportions alone?
+
+(IDEA: interactive select a few to compare side by side in this type of setup?)
+
+```{r}
+# exemplar:
+mpg %>% 
+  filter(cyl %in% c(4, 6, 8)) %>% 
+  ggplot(aes(x = factor(cyl), y = hwy, fill = factor(cyl))) +
+  
+  # add half-violin from {ggdist} package
+  stat_halfeye(
+    # adjust bandwidth
+    adjust = 0.5,
+    # move to the right
+    justification = -0.2,
+    # remove the slub interval
+    .width = 0,
+    point_colour = NA
+  ) +
+  geom_boxplot(
+    width = 0.12,
+    # removing outliers
+    outlier.color = NA,
+    alpha = 0.5
+  ) +
+  stat_dots(
+    # ploting on left side
+    side = "left",
+    # adjusting position
+    justification = 1.1,
+    # adjust grouping (binning) of observations
+    binwidth = 0.25
+  ) +
+  labs(
+    title = "RainCloud Plot",
+    x = "Engine Size",
+    y = "Highway Fuel",
+    fill = "Cylinders"
+  ) +
+  coord_flip()
+  # # Themes and Labels
+  # scale_fill_tq() +
+  # theme_tq() +
+```
 
 # Analysis
 
 We will now proceed with our analysis.
+
+```{r}
+
+# MLR overall ~ story + gameplay (+ intxn?) or even per-group
+
+# pearson/spearman correlation coefficients and heatmap of the same of overall scores
+
+# PCA or cluster analysis on rating patterns, unsupervised?
+
+# correlation coefficients of games played/co-occurrence
+
+# ADD IN developer eras or time-eras
+# potential groupings:
+# mechanical: Social Stealth AC1 thru Rogue; Transition Unity and Syndicate; RPG trio
+# narrative: Desmond AC1 thru AC3; Anthology AC4 thru Syndicate; Ancient trio
+# engine: Anvil AC1 thru AC:Rev; AnvilNext AC3 thru Rogue; AnvilNext 2.0 Unity thru end, tho origins to val was rebuilt
+# community: Classic AC1 thru Rev; Colonial AC3 thru Rogue; Urban Unity and Syndicate; RPG trio
+# studio: all montreal except rogue-sofia, syndicate-quebec, odyssey-quebec
+# think will bundle AC1 but if it's an outlier maybe split off (prob community schema only)
+# maybe creative directors? but that's probably overkill
+# can at least null = = = of means, but potentially others
+# one-way ANOVA? 
+# simple contrast RPG vs others
+# or lump mids, so AC1-AC:R ezio AC3-Synd middle and then RPG, 3 is nice number
+# interesting variant, half-steps: 0.5 = AC1, 1 = AC2-Rev, 1.5 = AC3, 2 = BF, 2.5 = Rogue, 3 = Unity/Synd, 4 = RPG
+
+# create a variable that is year of setting? lol
+
+# throw something ML at it
+
+# story - gameplay delta
+
+# years since release - nostalgia? including flexi curve?
+
+```
 
 ```{r}
 #| label: modeling
