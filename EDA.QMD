@@ -173,7 +173,7 @@ partial_response_Ids <- c("R_1ikUGhQjZS6RZJt", "R_BPzLWS3pTSYFU2J", "R_Uu9SV5hqe
 dff <- df |> 
   filter(!(ResponseId %in% partial_response_Ids),
          !if_all(ends_with("_1"), is.na))
-dff_long <- dff |> 
+# later are pivoted - bring up here?
   
 ```
 
@@ -247,6 +247,8 @@ source("SelectionEffectsViz.R")
 ```
 
 ```{r}
+#| label: subscore-pivots
+
 library(ggdist)  # may conflict ggridges; resolve if combining SelectionEffectsViz.R
 
 # use dff to for full subdata only
@@ -277,24 +279,28 @@ dff_responses <- dff |>
 
 ```{r}
 # I don't think this really shows what I want it to show
-dff_games |> 
-  mutate(Overall = factor(Overall),
-         Overall = fct_reorder(Overall, as.numeric(Overall), .desc = T)) |> 
-  ggplot(aes(x = Gameplay, y = Story, color = Overall)) +
-  geom_jitter(width = 0.4, height = 0.4, alpha = 0.25, size = 1.5)
+# dff_games |> 
+#   mutate(Overall = factor(Overall),
+#          Overall = fct_reorder(Overall, as.numeric(Overall), .desc = T)) |> 
+#   ggplot(aes(x = Gameplay, y = Story, color = Overall)) +
+#   geom_jitter(width = 0.4, height = 0.4, alpha = 0.25, size = 1.5)
 ```
 
 ```{r}
+# FAIL
 # library("paletteer")
-dff_responses |> 
-  ggplot(aes(x = GameNum, y = Rating, fill = Subquestion, color = Subquestion)) +
-  geom_violin(position = position_dodge(width = 0.8), trim = FALSE, alpha = 0.7) + 
-  theme_cowplot() + 
-  scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) + 
-  scale_color_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c"))
+# dff_responses |> 
+#   ggplot(aes(x = GameNum, y = Rating, fill = Subquestion, color = Subquestion)) +
+#   geom_violin(position = position_dodge(width = 0.8), trim = FALSE, alpha = 0.7) + 
+#   theme_cowplot() + 
+#   scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) + 
+#   scale_color_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c"))
 ```
 
 ```{r}
+#| label: violin-facet
+#| warning: false
+
 library(ggbeeswarm)
 dff_responses |> 
   ggplot(aes(x = Subquestion, y = Rating, fill = Subquestion, color = Subquestion)) +
@@ -325,6 +331,107 @@ dff_responses |>
 Okay, that's a good visual. Some observations: AC1 and AC2 are carried and dominated in overall score by story; Brotherhood, weirdly, is the opposite. AC1 is pretty notable for having gameplay that is mid at the verybest. Revelations is a bit polarizing within the high side regarding story. AC3 starts to noticeably droop in scores, but Black Flag seems to deserve high praise all around. Starting with Rogue and Unity, we start to see story sag for a while, culminating with a VERY panned Syndicate story, being pulled much more sharply towards 7's in story and this appears to drag down the overall ratings. Interestingly, for the most part gameplay seems to keep the overall ratings from excessive deterioration. Origins seems to be a clear return to form with the shapes up with the best of them, although there are clearly some detractors. Odyssey has a clearly softer story and Valhalla even worse; Odyssey seems to have some polarizing gameplay but Valhalla seems an even riskier bet. Looking overall, about half of the games had significant numbers of "hated" story ratings.
 
 IDEA: Look at 10/10's proportions alone?
+
+```{r}
+#| label: top10-shares
+
+library(scales)
+dff_responses |> 
+  filter(!is.na(Rating)) |> 
+  mutate(GameNum = fct_recode(GameNum, !!!setNames(short_gamenames, community_gamenames))) |> 
+  group_by(GameNum, Subquestion) |> 
+  summarize(PerfectScoreProportion = mean(Rating == 10), .groups = "drop") |>
+  ggplot(aes(x = GameNum, y = PerfectScoreProportion, fill = Subquestion)) +
+  geom_col(position = position_dodge(), color = "black", linewidth = 0.2, alpha = 0.8) +
+  scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) +
+  scale_y_continuous(labels = label_percent(accuracy = 1), expand = expansion(mult = c(0, 0.05)),
+                     limits = c(0,.5)) +  # consider to 1 for 100% scale
+  theme_cowplot() + 
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    panel.grid.major.y = element_line(color = "grey95", linewidth = 0.5),
+    axis.ticks = element_blank(),
+    axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")
+  ) +
+  guides(fill = guide_legend(title.position = "left", title.vjust = 0.5, nrow = 1)) +
+  labs(
+    x = "",
+    y = "Proportion of 10/10 Ratings",
+    fill = "Subquestion"
+  )
+```
+
+
+
+
+```{r}
+#| label: overall-violins
+
+dff_responses |> 
+  filter(Subquestion == "Overall") |> 
+  mutate(GameNum = fct_recode(GameNum, !!!setNames(short_gamenames, community_gamenames))) |> 
+  ggplot(aes(x = GameNum, y = Rating, fill = GameNum, color = GameNum)) +
+  geom_violin(alpha = .7, quantile.linetype = 1, scale = "width", quantiles = 0.5) +
+  theme_cowplot() + 
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  scale_y_continuous(breaks = 1:10) +
+  xlab("") +
+  ylab("Overall Game Rating") +
+  labs(title = "\"General/Overall\" Enjoyment Rating Distributions",
+       subtitle = "Scaled to identical width, out of those who rated the game only")
+```
+
+
+```{r}
+#| label: overall-bubbles
+
+library(ggforce)
+# alternate visualization
+dff_responses |>
+  filter(Subquestion == "Overall") |>
+  mutate(GameNum = fct_recode(GameNum, !!!setNames(short_gamenames, community_gamenames))) |>
+  count(GameNum, Rating) |>
+  ggplot(aes(x = GameNum, y = Rating, size = n, fill = GameNum, color = GameNum)) +
+  geom_point(alpha = 0.7, shape = 21, stroke = 0.5) +
+  theme_cowplot() +
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_size_area(max_size = 18) +       # area scaling is more honest than radius
+  scale_y_continuous(breaks = 1:10) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  xlab("") +
+  labs(title = "Overall Rating Distributions",
+       subtitle = "Bubble size = number of responses, out of those who rated the game only") +
+  guides(fill = "none", color = "none", size = "none")
+```
+
+
+```{r}
+#| label: played-barplot
+
+# we were getting ahead of ourselves - how many people even PLAYED each of these games? huge disparities?
+df_long |> 
+  filter(!(ResponseId %in% partial_response_Ids)) |> 
+  drop_na() |> 
+  mutate(Game = factor(as.numeric(group), levels = 1:12, labels = community_gamenames),
+         PlayedIt = Intro) |> 
+  ggplot(aes(x = Game, fill = Game, color = Game)) +
+  geom_bar(alpha = .9) +
+  theme_cowplot() +
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_y_continuous(breaks = seq.int(0, 120, 20)) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  xlab("") +
+  ylab("Counts") +
+  labs(title = "Overall Rating Distributions",
+       subtitle = "Bubble size = number of responses, out of those who rated the game only") +
+  guides(fill = "none", color = "none", size = "none")
+```
+
 
 (IDEA: interactive select a few to compare side by side in this type of setup?)
 
