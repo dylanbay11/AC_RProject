@@ -80,3 +80,17 @@ community_gamenames = c(
     "Black Flag", "Rogue", "Unity", "Syndicate", 
     "Origins", "Odyssey", "Valhalla"
 )
+ac_palette <- c(
+  "AC 1"        = "#A8B9C1", # Slate Blue/Grey (Crusades)
+  "AC 2"        = "#D4AF37", # Renaissance Gold
+  "Brotherhood" = "#B22222", # Roman Red
+  "Revelations" = "#8B4513", # Ottoman Copper
+  "AC 3"        = "#2F4F4F", # Forest Green (Wilderness)
+  "Black Flag"  = "#008080", # Caribbean Teal
+  "Rogue"       = "#708090", # Arctic Blue
+  "Unity"       = "#4682B4", # Royal Blue (Paris)
+  "Syndicate"   = "#556B2F", # Industrial Olive (London)
+  "Origins"     = "#E2A76F", # Desert Sand
+  "Odyssey"     = "#4169E1", # Mediterranean Blue
+  "Valhalla"    = "#00CED1"  # Norse Turquoise (or #E0FFFF artic white-grey)
+)
