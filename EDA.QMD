@@ -436,45 +436,16 @@ df_long |>
 (IDEA: interactive select a few to compare side by side in this type of setup?)
 
 ```{r}
-# exemplar:
-mpg %>% 
-  filter(cyl %in% c(4, 6, 8)) %>% 
-  ggplot(aes(x = factor(cyl), y = hwy, fill = factor(cyl))) +
-  
-  # add half-violin from {ggdist} package
-  stat_halfeye(
-    # adjust bandwidth
-    adjust = 0.5,
-    # move to the right
-    justification = -0.2,
-    # remove the slub interval
-    .width = 0,
-    point_colour = NA
-  ) +
-  geom_boxplot(
-    width = 0.12,
-    # removing outliers
-    outlier.color = NA,
-    alpha = 0.5
-  ) +
-  stat_dots(
-    # ploting on left side
-    side = "left",
-    # adjusting position
-    justification = 1.1,
-    # adjust grouping (binning) of observations
-    binwidth = 0.25
-  ) +
-  labs(
-    title = "RainCloud Plot",
-    x = "Engine Size",
-    y = "Highway Fuel",
-    fill = "Cylinders"
-  ) +
-  coord_flip()
-  # # Themes and Labels
-  # scale_fill_tq() +
-  # theme_tq() +
+# spot-check about a guy who claims that AC1 is better than AC2; measure dimension-wise and strict dominance. 
+# could fold this into a function for direct comparisons? Or make into a tool?
+dff |> 
+  filter(`1_Intro` == 1 & `2_Intro` == 1) |> 
+  select(c(ResponseId:`2_3`, TotalPlayed:RecordedWeekday)) |> 
+  mutate(PreferACIStory = ifelse(`1_1` < `2_1`, 1, 0), 
+         PreferACIGameplay = ifelse(`1_2` < `2_2`, 1, 0), 
+         PreferACIOverall = ifelse(`1_3` < `2_3`, 1, 0),
+         PreferACIUniversally = ifelse(PreferACIStory == 1 & PreferACIGameplay == 1 & PreferACIOverall == 1, 1, 0)) |> 
+  summarise(across(starts_with("Prefer"), mean))
 ```
 
 # Analysis
