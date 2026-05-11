@@ -45,11 +45,11 @@ dpi = 300
 ) # beyond YAML defaults
 options(scipen = 999)
 theme_set(theme_cowplot())
+
+#TODO: add package imports from inside up here and eliminate superfluous ones
 ```
 
 # Introduction
-
-I will be analyzing THIS data source. For some background, CONTEXT. The goal is to OBJECTIVE.
 
 On Tues, May 24, 2022 I ran a survey on the Assassin's Creed community on Reddit ([link](https://www.reddit.com/r/assassinscreed/comments/uwy6rd/which_ac_game_really_does_the_subreddit_like_the/)). The survey was designed pretty narrowly with one major goal, to understand the most popular games in the franchise and what made them popular, but also to see if there were any special links between games (for example, the franchise is usually roughly divided into 3 "eras" based on the look and feel of the games and their developer choices, AC1 thru AC3, AC4 thru AC Syndicate, AC Origins thru AC Valhalla). For simplicity, I only allowed the "mainline" games to be rated. To improve completion rates, I designed it to be both minimal and conditional: first respondents would select all the games they had played, and then they would rate each on Story, Gameplay, and Overall. The survey was conducted with Qualtrics and the exact phrasing was as follows:
 
@@ -65,6 +65,8 @@ On Tues, May 24, 2022 I ran a survey on the Assassin's Creed community on Reddit
 
 I collected 324 responses. 240 fully completed responses, 5 with a minor missing response, and 79 responses that included which games they played but didn't continue to the subratings section.
 
+This notebook contains an exploration of the data, data-based answers to several common community claims and questions, and further statistical analysis. `Cleaning.R` is referenced and contains the core import and most of the augmentation and shaping logic. A bit of additional reshaping and augmentation occurs in this script. `SelectionEffectsViz.R` explores reliability of the data to the extent possible.
+
 # Import
 
 ```{r}
@@ -75,19 +77,8 @@ source(here::here("Cleaning.R"))
 
 # EDA
 
-Here is some initial descriptive information about our dataset.
+Three ways to visualize and categorize the geographic makeup of respondents, sourced from IP address.
 
-```{r}
-#| label: skim_eda
-
-# skim(df)
-# df |> group_by(cat_var) |> skim()  # summaries per major category
-# df |> skim() |> filter(n_missing > 0)  # summary of missings
-# vis_miss(df)  # heatmap of missingness overall
-# gg_miss_var(df)  # bar of missingness
-# gg_miss_upset(df)  # easy col-to-col missingness associations
-
-```
 
 ```{r}
 #| label: country_eda
@@ -114,6 +105,8 @@ subregion.gg
 wbregion.gg
 # note that WBRegion does not perfectly nest in Subregion due to a few MENA countries (Turkey, Israel, Saudi Arabia)
 ```
+
+# Transformations and Missing Data
 
 ```{r}
 #| label: missing-data
@@ -177,11 +170,12 @@ dff <- df |>
   
 ```
 
-Also remember I did some work on the shift in distribution
+# Data Reliability and Time Shift
 
 ```{r}
 #| label: response-time-shift
 
+#TODO: clean up comments in this section
 library(dplyr)
 library(effsize)
 
@@ -235,16 +229,20 @@ print(cliff_results)
 # long story short: mostly there is a noticeable Day 1 effect, though still only so-so in strength
 ```
 
-Complement to the above:
+COMPLEMENT to the above:
 
 ```{r}
+#TODO: consider either moving above into the external script, or bringing all of them into here.
 source("SelectionEffectsViz.R")
 ```
 
 ```{r}
+#TODO: 
 # did we get excessive dropout due to anticipated fatigue?
 # lm in_df_missing ~ TotalPlayed ?
 ```
+
+# Principal Visualization
 
 ```{r}
 #| label: subscore-pivots
@@ -275,26 +273,6 @@ dff_responses <- dff |>
                                       to = c("Story", "Gameplay", "Overall")),
          GameNum = factor(as.numeric(GameNum), levels = 1:12, labels = short_gamenames)) |> 
   filter(Subquestion != "Intro")
-```
-
-```{r}
-# I don't think this really shows what I want it to show
-# dff_games |> 
-#   mutate(Overall = factor(Overall),
-#          Overall = fct_reorder(Overall, as.numeric(Overall), .desc = T)) |> 
-#   ggplot(aes(x = Gameplay, y = Story, color = Overall)) +
-#   geom_jitter(width = 0.4, height = 0.4, alpha = 0.25, size = 1.5)
-```
-
-```{r}
-# FAIL
-# library("paletteer")
-# dff_responses |> 
-#   ggplot(aes(x = GameNum, y = Rating, fill = Subquestion, color = Subquestion)) +
-#   geom_violin(position = position_dodge(width = 0.8), trim = FALSE, alpha = 0.7) + 
-#   theme_cowplot() + 
-#   scale_fill_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c")) + 
-#   scale_color_manual(values = c("Story" = "#1f78b4", "Gameplay" = "#6a3d9a", "Overall" = "#33a02c"))
 ```
 
 ```{r}
@@ -406,14 +384,17 @@ dff_responses |>
   labs(title = "Overall Rating Distributions",
        subtitle = "Bubble size = number of responses, out of those who rated the game only") +
   guides(fill = "none", color = "none", size = "none")
+
+# explore compressing the distance between columns in bubblechart and solving top cutoff issue
 ```
 
+# Rating Counts
 
 ```{r}
 #| label: played-barplot
 
 # we were getting ahead of ourselves - how many people even PLAYED each of these games? huge disparities?
-df_long |> 
+played_barplot <- df_long |> 
   filter(!(ResponseId %in% partial_response_Ids)) |> 
   drop_na() |> 
   mutate(Game = factor(as.numeric(group), levels = 1:12, labels = community_gamenames),
@@ -427,11 +408,164 @@ df_long |>
   theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
   xlab("") +
   ylab("Counts") +
-  labs(title = "Overall Rating Distributions",
-       subtitle = "Bubble size = number of responses, out of those who rated the game only") +
+  labs(title = "Total responses (full ratings)") +
   guides(fill = "none", color = "none", size = "none")
+played_barplot
+
 ```
 
+```{r}
+# ordered by descending
+played_barplot <- df_long |> 
+  filter(!(ResponseId %in% partial_response_Ids)) |> 
+  drop_na() |> 
+  mutate(Game = factor(as.numeric(group), levels = 1:12, labels = community_gamenames),
+         Game = fct_infreq(Game),
+         PlayedIt = Intro) |> 
+  ggplot(aes(x = Game, fill = Game, color = Game)) +
+  geom_bar(alpha = .9) +
+  theme_cowplot() +
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_y_continuous(breaks = seq.int(0, 120, 20)) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5, color = "black") +
+  xlab("") +
+  ylab("Counts") +
+  labs(title = "Total responses (full ratings)") +
+  guides(fill = "none", color = "none", size = "none")
+played_barplot
+```
+
+
+```{r}
+# superseded by below in terms of answering the right question, but kept in case useful later
+
+# played_norate_barplot <- df_missing |> 
+#   pivot_longer(
+#     cols = ends_with("_Intro"),
+#     names_to = c("Game", "Intro"),
+#     names_sep = "_"
+#   ) |> 
+#   filter(!is.na(value)) |> 
+#   select(c(ResponseId:RecordedDate, TotalPlayed:Game, value)) |> 
+#   rename(PlayedIt = value) |> 
+#   mutate(Game = factor(as.numeric(Game), levels = 1:12, labels = community_gamenames)) |> 
+#   ggplot(aes(x = Game, fill = Game, color = Game)) +
+#   geom_bar(alpha = .9) +
+#   theme_cowplot() +
+#   scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+#   scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+#   scale_y_continuous(breaks = seq.int(0, 120, 20)) +
+#   theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+#   xlab("") +
+#   ylab("Counts") +
+#   labs(title = "Total responses (played it but didn't rate it)") +
+#   guides(fill = "none", color = "none", size = "none")
+# 
+# played_barplot / played_norate_barplot
+```
+
+
+```{r}
+# Extract full responses
+df_full_status <- df_long |> 
+  filter(!(ResponseId %in% partial_response_Ids)) |> 
+  drop_na() |> 
+  mutate(Game = factor(as.numeric(group), levels = 1:12, labels = community_gamenames),
+         Status = "Rated") |> 
+  select(Game, Status)
+
+# Extract partial responses
+df_partial_status <- df_missing |> 
+  pivot_longer(
+    cols = ends_with("_Intro"),
+    names_to = c("Game", "Intro"),
+    names_sep = "_"
+  ) |> 
+  filter(!is.na(value)) |> 
+  mutate(Game = factor(as.numeric(Game), levels = 1:12, labels = community_gamenames),
+         Status = "Did Not Rate") |> 
+  select(Game, Status)
+
+# Combine into one dataframe
+df_combined <- bind_rows(df_full_status, df_partial_status)
+
+chisq_norate <- chisq.test(table(df_combined$Game, df_combined$Status))
+
+ggplot(df_combined, aes(x = Game, fill = Status)) +
+  geom_bar(position = "fill", alpha = .9) +
+  theme_cowplot() +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  xlab("") +
+  ylab("Proportion") +
+  labs(title = "Proportion of players who completed ratings by game",
+       subtitle = sprintf("Chi-squared = %.2f, df = %d, p = %.3f; not abnormal and thus unlikely to influence ratings", 
+                      chisq_norate$statistic, chisq_norate$parameter, chisq_norate$p.value)) +
+  scale_fill_manual(values = c("Rated" = "#2F4F4F", "Did Not Rate" = "#B22222")) 
+
+```
+
+# Games Played Count
+
+```{r}
+dff_user_level <- dff |>
+  arrange(TotalPlayed) |>
+  mutate(
+    prop_users = row_number() / n(),
+    prop_ratings = cumsum(TotalPlayed) / sum(TotalPlayed)
+  )
+
+ggplot(dff_user_level, aes(x = factor(TotalPlayed))) +
+  geom_bar(fill = "steelblue", color = "white") +
+  theme_minimal() +
+  labs(
+    title = "Volume of Ratings per User",
+    x = "Number of Games Rated",
+    y = "Number of Users"
+  )
+
+ggplot(dff_user_level, aes(x = prop_users, y = prop_ratings)) +
+  # The "Perfect Equality" line
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey") +
+  # The actual concentration curve
+  geom_line(color = "firebrick", linewidth = 1) +
+  # Formatting to percentages
+  scale_x_continuous(labels = label_percent(), expand = c(0,0)) +
+  scale_y_continuous(labels = label_percent(), expand = c(0,0)) +
+  theme_minimal() +
+  labs(
+    title = "Concentration of Ratings",
+    subtitle = "Cumulative % of users vs. Cumulative % of ratings contributed",
+    x = "% of Users (Sorted by TotalPlayed)",
+    y = "% of Total Ratings Provided"
+  )
+```
+
+We should note that the top 19% (i.e. those that played 12 games) contributed the top 46% of game ratings (top 26% gives top 61% if you relax the cutoff to 11). 
+
+Also, a full 50% of users who rated a game had only played a single one! This contributed only 10% of the ratings. 
+
+TODO: Would be kind of interesting to see an overlay of 1-gamers, vs mid-gamers, vs big-gamers (11 & 12). E.g. stacked bar? Ridge plot? Dunno. And also see if there is a correlation between the SelectionEffects (when they rated and such). perhaps add a category tag
+
+```{r}
+# which games were missing for the otherwise hardcore fans?
+dff_user_level |> 
+  filter(TotalPlayed == 11) |> 
+  pivot_longer(
+    cols = ends_with("_Intro"), 
+    names_to = "GameName", 
+    values_to = "PlayedStatus"
+  ) |> 
+  filter(is.na(PlayedStatus)) |> 
+  select(ResponseId, GameName) |> 
+  arrange(GameName) |> View()
+```
+
+Out of those 11s? Just for my curiosity, 7 missing Valhalla, 7 missing Rogue, 5 missing AC1, which makes sense
+
+# Direct Comparison
 
 (IDEA: interactive select a few to compare side by side in this type of setup?)
 
@@ -447,6 +581,14 @@ dff |>
          PreferACIUniversally = ifelse(PreferACIStory == 1 & PreferACIGameplay == 1 & PreferACIOverall == 1, 1, 0)) |> 
   summarise(across(starts_with("Prefer"), mean))
 ```
+
+
+# Era Categories
+
+```{r}
+
+```
+
 
 # Analysis
 
