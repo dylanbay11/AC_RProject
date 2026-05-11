@@ -586,6 +586,80 @@ dff |>
 # Era Categories
 
 ```{r}
+#TODO: as mentioned before, consider putting this elsewhere
+
+dff_eras <- dff_games |> 
+  mutate(
+    game_idx = as.integer(GameNum),
+    CatMechanics = case_when(
+      game_idx <= 7 ~ "Social Stealth",
+      game_idx %in% 8:9 ~ "Transition",
+      game_idx >= 10 ~ "RPG"
+    ),
+    CatMechanics = factor(CatMechanics, levels = c("Social Stealth", "Transition", "RPG")),
+    CatNarrative = case_when(
+      game_idx <= 5 ~ "Desmond",
+      game_idx %in% 6:9 ~ "Anthology",
+      game_idx >= 10 ~ "Layla"
+    ),
+    CatNarrative = factor(CatNarrative, levels = c("Desmond", "Anthology", "Layla")),
+    CatCommunity = case_when(
+      game_idx <= 4 ~ "Classic",
+      game_idx %in% 5:7 ~ "Colonial",
+      game_idx %in% 8:9 ~ "Urban",
+      game_idx >= 10 ~ "Ancient"
+    ),
+    CatCommunity = factor(CatCommunity, levels = c("Classic", "Colonial", "Urban", "Ancient/RPG")),
+    CatEngine = case_when(
+      game_idx <= 4 ~ "Anvil",
+      game_idx %in% 5:7 ~ "AnvilNext",
+      game_idx >= 8 ~ "AnvilNext 2.0"
+    ),
+    CatEngine = factor(CatEngine, levels = c("Anvil", "AnvilNext", "AnvilNext 2.0")),
+    NumGenerationHalfs = case_when(
+      game_idx == 1 ~ 0.5,
+      game_idx %in% 2:4 ~ 1.0,
+      game_idx == 5 ~ 1.5,
+      game_idx == 6 ~ 2.0,
+      game_idx == 7 ~ 2.5,
+      game_idx %in% 8:9 ~ 3.0,
+      game_idx >= 10 ~ 4.0
+    ),
+    NumGenerationWholes = case_when(
+      game_idx == 1 ~ 1,
+      game_idx %in% 2:4 ~ 2,
+      game_idx %in% 5:7 ~ 3,
+      game_idx %in% 8:9 ~ 5,
+      game_idx >= 10 ~ 5
+    )) |> 
+  select(-game_idx)
+
+```
+
+
+```{r}
+library(purrr)
+# note linear models are rough here b/c it's a 1-10 and is not really interval data esp. for interpretations
+
+# does story or gameplay have a bigger impact on Overall?
+summary(lm(Overall ~ Story + Gameplay, data = dff_eras))
+summary(lm(Overall ~ Story*Gameplay, data = dff_eras))
+# seems gameplay does. there is a bit of an interaction effect though (higher numbers, weaker links) but practically quite small b/c doesn't add much r^2
+
+
+# loop through model within category (can replace CatCommunity with another)
+tidy_models <- dff_eras %>%
+  group_by(CatCommunity) %>%
+  nest() %>%
+  mutate(model = map(data, ~lm(Overall ~ Story + Gameplay, data = .x)))
+
+tidy_models$model %>% map(summary)
+# looking too see if within these categories story takes a more prominent role
+# answer: gameplay generally still a bigger impact
+```
+
+
+```{r}
 
 ```
 
@@ -609,7 +683,7 @@ We will now proceed with our analysis.
 # mechanical: Social Stealth AC1 thru Rogue; Transition Unity and Syndicate; RPG trio
 # narrative: Desmond AC1 thru AC3; Anthology AC4 thru Syndicate; Ancient trio
 # engine: Anvil AC1 thru AC:Rev; AnvilNext AC3 thru Rogue; AnvilNext 2.0 Unity thru end, tho origins to val was rebuilt
-# community: Classic AC1 thru Rev; Colonial AC3 thru Rogue; Urban Unity and Syndicate; RPG trio
+# community: Classic AC1 thru Rev; Colonial AC3 thru Rogue; Urban Unity and Syndicate; RPG trio. Basically above.
 # studio: all montreal except rogue-sofia, syndicate-quebec, odyssey-quebec
 # think will bundle AC1 but if it's an outlier maybe split off (prob community schema only)
 # maybe creative directors? but that's probably overkill
@@ -633,8 +707,12 @@ We will now proceed with our analysis.
 #| label: modeling
 
 set.seed(1001)
+
+summary(lm(Overall ~ Story*Gameplay, data = dff_eras))
+
+
 ```
 
 # Conclusion
 
-It is clear that FINDING. We recommend ACTION. Possible next steps include EXTRAS.
+Analysis that is interesting but out of scope for me: sales and see if any correlations there. because requires a time series kind of thing maybe, and possibly controlling for consoles, steam vs internal, outdated numbers, etc.
