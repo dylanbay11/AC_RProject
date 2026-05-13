@@ -261,7 +261,8 @@ dff_games <- dff |>
     names_from = question,
     values_from = value
   ) |> 
-  rename(Story = `1`, Gameplay = `2`, Overall = `3`, Played = "Intro")
+  rename(Story = `1`, Gameplay = `2`, Overall = `3`, Played = "Intro") |> 
+  mutate(GameNum = factor(as.numeric(GameNum), levels = 1:12, labels = short_gamenames))
 dff_responses <- dff |> 
   pivot_longer(
     cols = contains("_"),
@@ -468,6 +469,8 @@ played_barplot
 
 
 ```{r}
+# this needs review as I'm not 100% sure what it all does (the rare exception here)
+
 # Extract full responses
 df_full_status <- df_long |> 
   filter(!(ResponseId %in% partial_response_Ids)) |> 
@@ -507,6 +510,8 @@ ggplot(df_combined, aes(x = Game, fill = Status)) +
 
 ```
 
+As the chart explains, likelihood to continue on to rate the game doesn't appear to differ so much that there is a disparity. In other words, no significant selection effect in progressing to the subquestions on the survey.
+
 # Games Played Count
 
 ```{r}
@@ -517,6 +522,7 @@ dff_user_level <- dff |>
     prop_ratings = cumsum(TotalPlayed) / sum(TotalPlayed)
   )
 
+#TODO: Make me prettier because this is an important plot
 ggplot(dff_user_level, aes(x = factor(TotalPlayed))) +
   geom_bar(fill = "steelblue", color = "white") +
   theme_minimal() +
@@ -547,6 +553,8 @@ We should note that the top 19% (i.e. those that played 12 games) contributed th
 
 Also, a full 50% of users who rated a game had only played a single one! This contributed only 10% of the ratings. 
 
+This is unfortunately a major limitation, I realize! There's a limited set of players who have experienced both the classic and the RPG era of games...
+
 TODO: Would be kind of interesting to see an overlay of 1-gamers, vs mid-gamers, vs big-gamers (11 & 12). E.g. stacked bar? Ridge plot? Dunno. And also see if there is a correlation between the SelectionEffects (when they rated and such). perhaps add a category tag
 
 ```{r}
@@ -560,7 +568,7 @@ dff_user_level |>
   ) |> 
   filter(is.na(PlayedStatus)) |> 
   select(ResponseId, GameName) |> 
-  arrange(GameName) |> View()
+  arrange(GameName) #|> View()
 ```
 
 Out of those 11s? Just for my curiosity, 7 missing Valhalla, 7 missing Rogue, 5 missing AC1, which makes sense
@@ -597,25 +605,29 @@ dff_eras <- dff_games |>
       game_idx >= 10 ~ "RPG"
     ),
     CatMechanics = factor(CatMechanics, levels = c("Social Stealth", "Transition", "RPG")),
+    
     CatNarrative = case_when(
       game_idx <= 5 ~ "Desmond",
       game_idx %in% 6:9 ~ "Anthology",
       game_idx >= 10 ~ "Layla"
     ),
     CatNarrative = factor(CatNarrative, levels = c("Desmond", "Anthology", "Layla")),
+    
     CatCommunity = case_when(
       game_idx <= 4 ~ "Classic",
       game_idx %in% 5:7 ~ "Colonial",
       game_idx %in% 8:9 ~ "Urban",
-      game_idx >= 10 ~ "Ancient"
+      game_idx >= 10 ~ "Ancient/RPG"
     ),
     CatCommunity = factor(CatCommunity, levels = c("Classic", "Colonial", "Urban", "Ancient/RPG")),
+    
     CatEngine = case_when(
       game_idx <= 4 ~ "Anvil",
       game_idx %in% 5:7 ~ "AnvilNext",
       game_idx >= 8 ~ "AnvilNext 2.0"
     ),
     CatEngine = factor(CatEngine, levels = c("Anvil", "AnvilNext", "AnvilNext 2.0")),
+    
     NumGenerationHalfs = case_when(
       game_idx == 1 ~ 0.5,
       game_idx %in% 2:4 ~ 1.0,
@@ -631,10 +643,69 @@ dff_eras <- dff_games |>
       game_idx %in% 5:7 ~ 3,
       game_idx %in% 8:9 ~ 5,
       game_idx >= 10 ~ 5
-    )) |> 
-  select(-game_idx)
+    ))
 
 ```
+
+
+```{r}
+dff_eras |> 
+  filter(game_idx != 1,
+         CatCommunity == "Classic" | CatCommunity == "Ancient/RPG") |> 
+  drop_na() |> 
+  group_by(ResponseId, CatCommunity) |> 
+  summarise(
+    MeanRating = mean(Overall, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = CatCommunity,
+    values_from = MeanRating
+  ) %>%
+  drop_na() |> 
+  mutate(
+    PreferenceDiff = `Classic` - `Ancient/RPG`
+  ) |> 
+  ggplot(aes(x = PreferenceDiff)) +
+  geom_histogram(bins = 30)
+  
+# alternate plot?
+
+# somehow augment with Total Played of each category contributing to their mean?
+```
+
+```{r}
+# played at least one of both eras, what is the TotalPlayed of them?
+
+# UGH THIS IS WRONG
+dff_eras |> 
+  filter(game_idx != 1,
+         CatCommunity == "Classic" | CatCommunity == "Ancient/RPG") |> 
+  group_by(ResponseId, CatCommunity) |> 
+  summarize(CatGamesPlayed = sum(Played)) |> 
+  pivot_wider(
+    names_from = CatCommunity,
+    values_from = CatGamesPlayed,
+    values_fill = 0
+  ) |> 
+  drop_na()
+
+# something is fishy about these counts
+  
+```
+
+```{r}
+# you only played one, what was it?
+# MAKE THIS WAY NICER
+#TODO: wrong spot
+#TODO: reminds me to clean up df in similar fashion as other df's
+
+df |> 
+  filter(TotalPlayed == 1) |> 
+  ggplot(aes(x = as.factor(IntroList))) +
+  geom_histogram(stat = "count")
+```
+
 
 
 ```{r}
@@ -663,6 +734,48 @@ tidy_models$model %>% map(summary)
 
 ```
 
+
+# Revisit Story and Gameplay trends
+
+```{r}
+dff_responses |> 
+  filter(Subquestion == "Story") |> 
+  mutate(GameNum = fct_recode(GameNum, !!!setNames(short_gamenames, community_gamenames))) |> 
+  ggplot(aes(x = GameNum, y = Rating, fill = GameNum, color = GameNum)) +
+  geom_violin(alpha = .7, quantile.linetype = 1, scale = "width", quantiles = 0.5) +
+  theme_cowplot() + 
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  scale_y_continuous(breaks = 1:10) +
+  xlab("") +
+  ylab("Story Game Rating") +
+  labs(title = "Story Rating Distributions",
+       subtitle = "Scaled to identical width, out of those who rated the game only")
+```
+
+
+```{r}
+dff_responses |> 
+  filter(Subquestion == "Gameplay") |> 
+  mutate(GameNum = fct_recode(GameNum, !!!setNames(short_gamenames, community_gamenames))) |> 
+  ggplot(aes(x = GameNum, y = Rating, fill = GameNum, color = GameNum)) +
+  geom_violin(alpha = .7, quantile.linetype = 1, scale = "width", quantiles = 0.5) +
+  theme_cowplot() + 
+  scale_fill_manual(values = setNames(ac_palette, community_gamenames)) +
+  scale_color_manual(values = setNames(ac_palette, community_gamenames)) +
+  theme(axis.text.x = element_text(size = 10, angle = 40, hjust = .95, vjust = .95, face = "bold")) +
+  scale_y_continuous(breaks = 1:10) +
+  xlab("") +
+  ylab("Gamplay Game Rating") +
+  labs(title = "Gameplay Rating Distributions",
+       subtitle = "Scaled to identical width, out of those who rated the game only")
+```
+
+I think gameplay complaints likely overblown. See how Valhalla is basically just AC3 all over again? At worst it's a syndicate, which is also normal. makes me wonder about shadows, lol
+
+
+MAKE SOME TRENDLINES? INCLUDE RELEASE YEAR AS A VARIABLE? ETC? 
 
 # Analysis
 
